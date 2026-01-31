@@ -309,6 +309,7 @@
             settingsWidget.style.opacity = '0';
             settingsWidget.style.transform = 'translateY(-50%) scale(0.9)';
             setTimeout(() => settingsWidget.style.display = 'none', 400);
+            chrome.runtime.sendMessage({ action: "updateBackgroundActiveState", isActive: false });
         };
 
         const trigger = settingsWidget.querySelector('#bbinl-drop-trigger');
@@ -633,10 +634,15 @@
             if (res.success) {
                 createOverlay();
                 createSettingsWidget();
+                chrome.runtime.sendMessage({ action: "updateBackgroundActiveState", isActive: true, isListening: true });
             }
+        } else if (request.action === "restoreState") {
+            createSettingsWidget();
+            sendResponse({ status: "restored" });
         } else if (request.action === "stopListening") {
             const res = stopListening();
             sendResponse({ status: res.success ? 'stopped' : 'error' });
+            chrome.runtime.sendMessage({ action: "updateBackgroundActiveState", isActive: true, isListening: false });
         } else if (request.action === "getListeningState") {
             sendResponse({ isListening: isListening });
         } else if (request.action === "setLanguage") {
