@@ -2,14 +2,10 @@ let activeTabs = {};
 
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
-    // Open both Welcome Page and Telegram Channel
     chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") });
-    chrome.tabs.create({ url: "https://t.me/no_coder_xone" });
   }
 
-  // Set Uninstall URL (opens when extension is removed)
-  chrome.runtime.setUninstallURL("https://t.me/bro_bin_lagbe");
-
+  chrome.runtime.setUninstallURL("https://bbinl.site/bBINl-voice-typing/");
   chrome.action.setIcon({ path: "icons/icon48.png" });
   chrome.action.setBadgeText({ text: "" });
 });
