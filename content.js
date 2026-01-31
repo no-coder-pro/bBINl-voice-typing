@@ -369,8 +369,13 @@
         const micBtn = settingsWidget.querySelector('#bbinl-pro-mic');
         micBtn.onmousedown = (e) => e.preventDefault();
         micBtn.onclick = () => {
-            if (isListening) stopListening();
-            else startListening();
+            if (isListening) {
+                micBtn.classList.remove('listening');
+                stopListening();
+            } else {
+                micBtn.classList.add('listening');
+                startListening();
+            }
         };
 
         document.addEventListener('click', () => dropdown.classList.remove('show'));
