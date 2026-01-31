@@ -3,7 +3,6 @@ let activeTabs = {};
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
     chrome.tabs.create({ url: chrome.runtime.getURL("welcome.html") });
-    chrome.tabs.create({ url: "https://t.me/no_coder_xone" });
   }
 
   chrome.runtime.setUninstallURL("https://bbinl.site/bBINl-voice-typing/");
@@ -15,6 +14,8 @@ function updateBadgeAndIcon(tabId, status) {
   let iconPath = "icons/icon48.png";
   let badgeText = "";
   let badgeColor = "#4CAF50";
+
+  const tabState = activeTabs[tabId] || { isActive: false, isListening: false };
 
   switch (status) {
     case "active":
@@ -33,8 +34,13 @@ function updateBadgeAndIcon(tabId, status) {
       badgeColor = "#FFC107";
       break;
     default:
-      iconPath = "icons/icon48.png";
-      badgeText = "";
+      if (tabState.isActive) {
+        iconPath = "icons/icon48_active.png";
+        badgeText = "ON";
+      } else {
+        iconPath = "icons/icon48.png";
+        badgeText = "";
+      }
   }
 
   chrome.action.setIcon({ tabId: tabId, path: iconPath });
@@ -46,9 +52,9 @@ function updateBadgeAndIcon(tabId, status) {
 
 chrome.action.onClicked.addListener((tab) => {
   const tabId = tab.id;
-  const isActive = !!activeTabs[tabId];
+  const tabState = activeTabs[tabId] || { isActive: false, isListening: false };
 
-  if (!isActive) {
+  if (!tabState.isActive) {
     chrome.scripting.executeScript({
       target: { tabId: tabId },
       files: ['toast.js', 'content.js']
@@ -61,15 +67,16 @@ chrome.action.onClicked.addListener((tab) => {
         if (chrome.runtime.lastError || !response || response.status !== "started") {
           updateBadgeAndIcon(tabId, "error");
         } else {
-          activeTabs[tabId] = true;
-          updateBadgeAndIcon(tabId, "active");
+          activeTabs[tabId] = { isActive: true, isListening: true };
+          updateBadgeAndIcon(tabId, "listening");
         }
       });
     });
   } else {
+    // If it's active but icon clicked, we toggle the state or stop it
     chrome.tabs.sendMessage(tabId, { action: "stopListening" }, (response) => {
-      activeTabs[tabId] = false;
-      updateBadgeAndIcon(tabId, "default");
+      activeTabs[tabId].isListening = false;
+      updateBadgeAndIcon(tabId, "active");
     });
   }
 });
@@ -79,23 +86,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (!tabId) return;
 
   if (request.action === "updateIcon") {
+    if (activeTabs[tabId]) {
+      activeTabs[tabId].isListening = (request.status === "listening");
+    }
     updateBadgeAndIcon(tabId, request.status);
   } else if (request.action === "updateBackgroundActiveState") {
-    activeTabs[tabId] = request.isActive;
-    if (!request.isActive) {
+    if (request.isActive) {
+      activeTabs[tabId] = { isActive: true, isListening: request.isListening || false };
+      updateBadgeAndIcon(tabId, request.isListening ? "listening" : "active");
+    } else {
+      delete activeTabs[tabId];
       updateBadgeAndIcon(tabId, "default");
     }
   }
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && activeTabs[tabId]) {
+  if (changeInfo.status === 'complete' && activeTabs[tabId] && activeTabs[tabId].isActive) {
     chrome.scripting.executeScript({
       target: { tabId: tabId },
       files: ['toast.js', 'content.js']
     }, () => {
       if (!chrome.runtime.lastError) {
-        chrome.tabs.sendMessage(tabId, { action: "startListening" });
+        if (activeTabs[tabId].isListening) {
+          chrome.tabs.sendMessage(tabId, { action: "startListening" });
+        } else {
+          // Just restore the widget without starting recognition
+          chrome.tabs.sendMessage(tabId, { action: "restoreState" });
+        }
       } else {
         delete activeTabs[tabId];
         updateBadgeAndIcon(tabId, "default");
